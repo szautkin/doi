@@ -63,26 +63,22 @@
 #
 # ***********************************************************************
 
-from app.config import ADES_PYTHON_BIN
+import importlib
+from pathlib import Path
 
 
-def get_converter_path(converter_name, extensions=None):
+def get_converter_path(converter_name):
     """
-    Get the path to a converter script, trying different possible filenames.
+    Get the path to a converter script from the installed iau-ades package.
 
     Args:
-        converter_name: Base name of the converter script
-        extensions: List of extensions to try (defaults to ["py", ""])
+        converter_name: Name of the converter module (e.g. "psvtoxml", "mpc80coltoxml")
 
     Returns:
-        Path object to the converter script, or None if not found
+        Path object to the converter module file, or None if not found
     """
-    if extensions is None:
-        extensions = [".py", ""]
-
-    for ext in extensions:
-        path = ADES_PYTHON_BIN / f"{converter_name}{ext}"
-        if path.exists():
-            return path
-
-    return None
+    try:
+        mod = importlib.import_module(f"ades.{converter_name}")
+        return Path(mod.__file__)
+    except ImportError:
+        return None

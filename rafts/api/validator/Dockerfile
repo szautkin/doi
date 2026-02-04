@@ -7,10 +7,9 @@ WORKDIR /app
 
 # Copy dependency files first (for better caching)
 COPY pyproject.toml ./
-COPY ades/ ./ades/
 COPY app/ ./app/
 
-# Install dependencies to user location
+# Install dependencies (including iau-ades from PyPI) to user location
 RUN pip install --no-cache-dir --user .
 
 # =============================================================================
@@ -24,11 +23,10 @@ WORKDIR /app
 RUN groupadd -r -g 1001 validator && \
     useradd -r -u 1001 -g validator validator
 
-# Copy installed packages from builder
+# Copy installed packages from builder (includes iau-ades and its data files)
 COPY --from=builder /root/.local /home/validator/.local
 
 # Copy application code
-COPY --chown=validator:validator ades/ ./ades/
 COPY --chown=validator:validator app/ ./app/
 
 # Set Python path
