@@ -171,9 +171,7 @@ const MiscellaneousInfoForm = forwardRef<
   }, [initialData, reset])
 
   useEffect(() => {
-    if (isDirty) {
-      formIsDirty(isDirty)
-    }
+    formIsDirty(isDirty)
   }, [isDirty, formIsDirty])
 
   // Expose getCurrentValues via ref for parent to get form values before submit

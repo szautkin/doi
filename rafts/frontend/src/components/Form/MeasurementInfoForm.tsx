@@ -138,9 +138,7 @@ const MeasurementInfoForm = ({
   }, [initialData, reset])
 
   useEffect(() => {
-    if (isDirty) {
-      formIsDirty(isDirty)
-    }
+    formIsDirty(isDirty)
   }, [isDirty, formIsDirty])
 
   const onSubmit = (data: TMeasurementInfo) => {

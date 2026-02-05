@@ -126,6 +126,7 @@ export const updateDOI = async (
     console.log('[updateDOI] Payload:', JSON.stringify(convertedJSON, null, 2))
 
     // Make the API call with the access token as a cookie (DOI expects cookie auth)
+    // DOI backend returns 303 redirect on success - don't auto-follow
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -133,10 +134,17 @@ export const updateDOI = async (
         Cookie: `CADC_SSO=${accessToken}`,
       },
       body: multipartFormData,
+      redirect: 'manual', // Don't follow redirects - 303 means success
     })
 
     console.log('[updateDOI] Response status:', response.status)
-    if (!response.ok) {
+    console.log('[updateDOI] Location header:', response.headers.get('Location'))
+
+    // 303 redirect means success - the backend processed the update
+    if (response.status === 303) {
+      const location = response.headers.get('Location')
+      console.log('[updateDOI] Success (303 redirect):', location)
+    } else if (!response.ok) {
       const errorText = await response.text().catch(() => '')
       console.error('[updateDOI] Error response:', response.status, errorText)
       return {
@@ -145,26 +153,18 @@ export const updateDOI = async (
       }
     }
 
-    const data = await response.text()
-    console.log('[updateDOI] Success response:', data)
-
-    // Try to upload RAFT.json, but don't fail if it doesn't work
-    // The DOI XML is the primary data store, RAFT.json is for faster form loading
-    if (id) {
-      try {
-        const uploadResult = await uploadFile(id, formData, accessToken)
-        if (uploadResult.error) {
-          console.warn(
-            '[updateDOI] RAFT.json upload failed (non-critical):',
-            uploadResult.error.message,
-          )
-        }
-      } catch (uploadError) {
-        console.warn('[updateDOI] RAFT.json upload exception (non-critical):', uploadError)
+    // DOI XML updated successfully - now upload RAFT.json (both must succeed)
+    const uploadResult = await uploadFile(id, formData, accessToken)
+    if (uploadResult.error) {
+      console.error('[updateDOI] RAFT.json upload failed:', uploadResult.error.message)
+      return {
+        [SUCCESS]: false,
+        [MESSAGE]: `DOI metadata updated but RAFT data save failed: ${uploadResult.error.message}`,
       }
     }
 
-    return { [SUCCESS]: true, data }
+    console.log('[updateDOI] Both DOI XML and RAFT.json updated successfully')
+    return { [SUCCESS]: true, data: id }
   } catch (error) {
     console.error('[updateDOI] Exception:', error)
     return {

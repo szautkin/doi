@@ -367,6 +367,8 @@ const FormLayoutWithContext = () => {
   // Sync current form values to context before submit
   // This ensures "Save as Draft" captures unsaved form data
   // Returns the synced data directly to avoid async state race condition
+  // Always reads current values from the active form ref regardless of dirty state,
+  // since dirty tracking is unreliable for gating saves (some forms only report dirty=true, never false)
   const syncCurrentFormToContext = useCallback(() => {
     // Start with current raftData
     let syncedData = { ...raftData }
@@ -374,28 +376,28 @@ const FormLayoutWithContext = () => {
     // Get current values from the active form section and sync to context
     switch (currentStep) {
       case 0: // Author form
-        if (authorFormRef.current && formIsDirty[PROP_AUTHOR_INFO]) {
+        if (authorFormRef.current) {
           const values = authorFormRef.current.getCurrentValues()
           syncedData = { ...syncedData, [PROP_AUTHOR_INFO]: values }
-          updateRaftSection(PROP_AUTHOR_INFO, values) // Still update context for UI
+          updateRaftSection(PROP_AUTHOR_INFO, values)
         }
         break
       case 1: // Announcement/Observation form
-        if (announcementFormRef.current && formIsDirty[PROP_OBSERVATION_INFO]) {
+        if (announcementFormRef.current) {
           const values = announcementFormRef.current.getCurrentValues()
           syncedData = { ...syncedData, [PROP_OBSERVATION_INFO]: values }
           updateRaftSection(PROP_OBSERVATION_INFO, values)
         }
         break
       case 2: // Technical/Observation info form
-        if (observationFormRef.current && formIsDirty[PROP_TECHNICAL_INFO]) {
+        if (observationFormRef.current) {
           const values = observationFormRef.current.getCurrentValues()
           syncedData = { ...syncedData, [PROP_TECHNICAL_INFO]: values }
           updateRaftSection(PROP_TECHNICAL_INFO, values)
         }
         break
       case 3: // Miscellaneous form
-        if (miscFormRef.current && formIsDirty[PROP_MISC_INFO]) {
+        if (miscFormRef.current) {
           const values = miscFormRef.current.getCurrentValues()
           syncedData = { ...syncedData, [PROP_MISC_INFO]: values }
           updateRaftSection(PROP_MISC_INFO, values)
@@ -403,21 +405,19 @@ const FormLayoutWithContext = () => {
         break
     }
 
-    // Also sync title if it's dirty
-    if (formIsDirty[PROP_GENERAL_INFO]) {
-      syncedData = {
-        ...syncedData,
-        [PROP_GENERAL_INFO]: {
-          ...syncedData[PROP_GENERAL_INFO],
-          [PROP_TITLE]: titleValue,
-          [PROP_POST_OPT_OUT]: postOptOut,
-          [PROP_STATUS]: syncedData[PROP_GENERAL_INFO]?.[PROP_STATUS] ?? OPTION_DRAFT,
-        },
-      }
+    // Always sync title and opt-out values to capture any unsaved changes
+    syncedData = {
+      ...syncedData,
+      [PROP_GENERAL_INFO]: {
+        ...syncedData[PROP_GENERAL_INFO],
+        [PROP_TITLE]: titleValue,
+        [PROP_POST_OPT_OUT]: postOptOut,
+        [PROP_STATUS]: syncedData[PROP_GENERAL_INFO]?.[PROP_STATUS] ?? OPTION_DRAFT,
+      },
     }
 
     return syncedData
-  }, [currentStep, formIsDirty, updateRaftSection, raftData, titleValue, postOptOut])
+  }, [currentStep, updateRaftSection, raftData, titleValue, postOptOut])
 
   // Handle form submission
   const handleSubmit = useCallback(

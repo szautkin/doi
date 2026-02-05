@@ -138,38 +138,47 @@ export const submitDOI = async (formData: TRaftContext): Promise<IResponseData<s
     console.log('[submitDOI] Location header:', response.headers.get('Location'))
 
     // 303 redirect means success - the Location header contains the new DOI URL
+    let identifier: string | undefined
+
     if (response.status === 303) {
       const location = response.headers.get('Location')
       console.log('[submitDOI] Success (303 redirect):', location)
-      if (location) {
-        const identifier = location.split('/').pop()
-        console.log('[submitDOI] Extracted identifier from redirect:', identifier)
-        if (identifier) {
-          await uploadFile(identifier, formData, accessToken)
-        }
-        return { [SUCCESS]: true, data: location }
-      }
-    }
-
-    if (!response.ok) {
+      identifier = location?.split('/').pop()
+      console.log('[submitDOI] Extracted identifier from redirect:', identifier)
+    } else if (!response.ok) {
       const errorText = await response.text().catch(() => '')
       console.error('[submitDOI] Error response:', response.status, errorText)
       return {
         [SUCCESS]: false,
         [MESSAGE]: `Request failed with status ${response.status}: ${errorText}`,
       }
+    } else {
+      const data = await response.text()
+      console.log('[submitDOI] Success response:', data)
+      identifier = data ? extractDOI(data)?.split('/')?.[1] : undefined
+      console.log('[submitDOI] Extracted identifier:', identifier)
     }
 
-    const data = await response.text()
-    console.log('[submitDOI] Success response:', data)
-    if (data) {
-      const identifier = extractDOI(data)?.split('/')?.[1]
-      console.log('[submitDOI] Extracted identifier:', identifier)
-      if (identifier) {
-        await uploadFile(identifier, formData, accessToken)
+    if (!identifier) {
+      console.error('[submitDOI] Could not extract DOI identifier from response')
+      return {
+        [SUCCESS]: false,
+        [MESSAGE]: 'DOI created but could not determine identifier',
       }
     }
-    return { [SUCCESS]: true, data }
+
+    // DOI created successfully - now upload RAFT.json (both must succeed)
+    const uploadResult = await uploadFile(identifier, formData, accessToken)
+    if (uploadResult.error) {
+      console.error('[submitDOI] RAFT.json upload failed:', uploadResult.error.message)
+      return {
+        [SUCCESS]: false,
+        [MESSAGE]: `DOI created (${identifier}) but RAFT data save failed: ${uploadResult.error.message}`,
+      }
+    }
+
+    console.log('[submitDOI] Both DOI and RAFT.json created successfully')
+    return { [SUCCESS]: true, data: identifier }
   } catch (error) {
     console.error('[submitDOI] Exception:', error)
     return {
