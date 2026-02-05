@@ -72,6 +72,7 @@ import { SUBMIT_DOI_URL } from '@/actions/constants'
 import { parseXmlToJson } from '@/utilities/xmlParser'
 import { sortByIdentifierNumber } from '@/utilities/doiIdentifier'
 import { DOIData } from '@/types/doi'
+import { downloadRaftFile } from '@/services/canfarStorage'
 
 export const getDOIData = async () => {
   try {
@@ -120,9 +121,25 @@ export const getDOIData = async () => {
     console.log('[getDOIData] Raw XML:', xmlString)
     const data: DOIData[] = await parseXmlToJson(xmlString)
     console.log('[getDOIData] Parsed DOIs count:', data.length)
-    console.log('[getDOIData] Parsed DOIs:', JSON.stringify(data, null, 2))
 
-    return { success: true, data: sortByIdentifierNumber(data) }
+    // Enrich with RAFT.json titles (the DOI status title is stale after updates)
+    const enrichedData = await Promise.all(
+      data.map(async (doi) => {
+        if (doi.dataDirectory && accessToken) {
+          try {
+            const raftResult = await downloadRaftFile(doi.dataDirectory, accessToken)
+            if (raftResult.success && raftResult.data?.generalInfo?.title) {
+              return { ...doi, title: raftResult.data.generalInfo.title }
+            }
+          } catch {
+            // Fall back to DOI status title
+          }
+        }
+        return doi
+      }),
+    )
+
+    return { success: true, data: sortByIdentifierNumber(enrichedData) }
   } catch (error) {
     console.error('[getDOIData] Exception:', error)
     return {

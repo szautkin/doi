@@ -144,6 +144,19 @@ export const updateDOI = async (
     if (response.status === 303) {
       const location = response.headers.get('Location')
       console.log('[updateDOI] Success (303 redirect):', location)
+
+      // Fetch and log the updated DataCite XML to verify the update
+      const xmlResponse = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/xml',
+          Cookie: `CADC_SSO=${accessToken}`,
+        },
+      })
+      if (xmlResponse.ok) {
+        const xml = await xmlResponse.text()
+        console.log('[updateDOI] Updated DataCite XML:\n', xml)
+      }
     } else if (!response.ok) {
       const errorText = await response.text().catch(() => '')
       console.error('[updateDOI] Error response:', response.status, errorText)

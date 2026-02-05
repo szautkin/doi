@@ -74,22 +74,6 @@ import { extractDOI } from '@/utilities/doiIdentifier'
 import { uploadFile } from '@/services/canfarStorage'
 import { TRaftContext } from '@/context/types'
 import { IResponseData } from '@/actions/types'
-import { OPTION_REVIEW, OPTION_DRAFT } from '@/shared/constants'
-import { BACKEND_STATUS } from '@/shared/backendStatus'
-
-// Map frontend status to backend status
-// When author submits for review, status becomes "review ready" (not "in review")
-// "in review" is set when a publisher claims the RAFT for review
-const getBackendStatus = (frontendStatus?: string): string => {
-  switch (frontendStatus) {
-    case OPTION_REVIEW:
-      return BACKEND_STATUS.REVIEW_READY
-    case OPTION_DRAFT:
-      return BACKEND_STATUS.IN_PROGRESS
-    default:
-      return BACKEND_STATUS.IN_PROGRESS
-  }
-}
 
 export const submitDOI = async (formData: TRaftContext): Promise<IResponseData<string>> => {
   const convertedJSON = convertToDataCite(formData)
@@ -105,24 +89,18 @@ export const submitDOI = async (formData: TRaftContext): Promise<IResponseData<s
 
     // DOI backend expects multipart form data with:
     // - 'doiMetaData' for DataCite metadata
-    // - 'doiNodeData' for status updates
+    // - 'doiNodeData' for node properties (only journalRef supported on creation)
     const multipartFormData = new FormData()
     const jsonBlob = new Blob([JSON.stringify(convertedJSON)], { type: 'application/json' })
     multipartFormData.append('doiMetaData', jsonBlob)
 
-    // Include status if provided
-    if (formData.generalInfo?.status) {
-      const backendStatus = getBackendStatus(formData.generalInfo.status)
-      const nodeData = JSON.stringify({ status: backendStatus })
-      const nodeBlob = new Blob([nodeData], { type: 'application/json' })
-      multipartFormData.append('doiNodeData', nodeBlob)
-      console.log('[submitDOI] Including status:', backendStatus)
-    }
+    // Note: status defaults to DRAFT on creation (set by backend).
+    // PostAction handles both creation (POST without suffix) and update (POST with suffix).
 
     console.log('[submitDOI] Submitting to:', SUBMIT_DOI_URL)
     console.log('[submitDOI] Payload:', JSON.stringify(convertedJSON, null, 2))
 
-    // Make the API call with the access token as a cookie (DOI expects cookie auth)
+    // Use POST for creation. Backend creates DOI when no suffix is provided.
     // DOI backend returns 303 redirect on success - don't auto-follow
     const response = await fetch(SUBMIT_DOI_URL, {
       method: 'POST',

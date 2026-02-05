@@ -36,11 +36,6 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
-  // Turbopack configuration
-  turbopack: {
-    root: __dirname,
-  },
-
   // Add these for CANFAR compatibility
   // Use the BASE_PATH from environment if available
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
@@ -79,4 +74,12 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default withNextIntl(nextConfig)
+// next-intl 3.x sets experimental.turbo (deprecated in Next.js 15.5+)
+// Move it to turbopack until next-intl is upgraded to v4
+const config = withNextIntl(nextConfig) as NextConfig
+if (config.experimental?.turbo) {
+  config.turbopack = { ...config.turbopack, ...config.experimental.turbo }
+  delete config.experimental.turbo
+}
+
+export default config
