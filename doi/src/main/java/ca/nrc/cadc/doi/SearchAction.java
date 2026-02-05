@@ -213,15 +213,17 @@ public class SearchAction extends DoiAction {
                         }
 
                         NodeProperty statusProp = childNode.getProperty(DOI.VOSPACE_DOI_STATUS_PROPERTY);
-                        if (statusProp.getValue().equals("minted") && !doiSearchFilter.getStatusList().contains(Status.MINTED)) {
+                        String statusValue = (statusProp != null) ? statusProp.getValue() : null;
+                        if (Status.MINTED.getValue().equals(statusValue) && !doiSearchFilter.getStatusList().contains(Status.MINTED)) {
                             continue; // Skip nodes where the status is minted and the caller is a publisher
                         }
                     }
                 } else {
                     NodeProperty statusProp = childNode.getProperty(DOI.VOSPACE_DOI_STATUS_PROPERTY);
+                    String statusValue = (statusProp != null) ? statusProp.getValue() : null;
 
                     // Check if the user is DOI Admin, publisher, or matches the requester
-                    if (!statusProp.getValue().equals("minted") && !callingUserDOIAdmin && !callingUserPublisher
+                    if (!Status.MINTED.getValue().equals(statusValue) && !callingUserDOIAdmin && !callingUserPublisher
                             && !isCallingUserRequester(childNode)) {
                         continue;
                     }

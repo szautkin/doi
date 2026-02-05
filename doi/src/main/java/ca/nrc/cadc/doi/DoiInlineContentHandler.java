@@ -127,6 +127,9 @@ public class DoiInlineContentHandler implements InlineContentHandler {
                     log.debug(dpe);
                     throw new InlineContentException(dpe.getMessage());
                 }
+            } else {
+                throw new IllegalArgumentException("Unsupported content type for metadata: " + contentType
+                        + ". Expected " + XML_CONTENT_TYPE + " or " + JSON_CONTENT_TYPE);
             }
         }
         else if (NODE_DATA_KEY.equals(name)) {
@@ -139,9 +142,12 @@ public class DoiInlineContentHandler implements InlineContentHandler {
                 // read json file
                 content.value = new JSONObject(new JSONTokener(inputStream));
                 log.info("content value: " + content.value);
+            } else {
+                throw new IllegalArgumentException("Unsupported content type for node data: " + contentType
+                        + ". Expected " + JSON_CONTENT_TYPE);
             }
         } else {
-            throw new IllegalArgumentException("Unrecognized content type: " + name);
+            throw new IllegalArgumentException("Unrecognized content name: " + name);
         }
         return content;
     }

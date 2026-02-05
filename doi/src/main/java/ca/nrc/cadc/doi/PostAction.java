@@ -132,17 +132,18 @@ public class PostAction extends DoiAction {
         super.init();
         authorize();
 
-        // Validate user for minting or updating DOI
-        if (doiSuffix != null) { // DOI Initialization does not require authorization
-            authorizeResourceAccess();
+        // POST requires a DOI suffix - use PUT to create new DOIs
+        if (doiSuffix == null) {
+            throw new IllegalArgumentException("DOI suffix required. Use PUT to create a new DOI.");
         }
 
-        // Do DOI creation work as doi admin
+        // Validate user for minting or updating DOI
+        authorizeResourceAccess();
+
+        // Do DOI update/action work as doi admin
         Subject.doAs(getAdminSubject(), (PrivilegedExceptionAction<Object>) () -> {
             if (doiAction != null) {
                 performDOIAction();
-            } else if (doiSuffix == null) {
-                createDOI();
             } else {
                 updateDOI();
             }
@@ -170,6 +171,11 @@ public class PostAction extends DoiAction {
 
         // must be the requester (doi creator) for all other actions
         if (isRequester) {
+            return;
+        }
+
+        // publishers can access DOIs for review operations
+        if (isCallingUserPublisher()) {
             return;
         }
 
@@ -362,15 +368,13 @@ public class PostAction extends DoiAction {
     }
 
     private Title getTitle(Resource resource) {
-        Title title = null;
         List<Title> titles = resource.getTitles();
         for (Title t : titles) {
             if (StringUtil.hasText(t.getValue())) {
-                title = t;
-                break;
+                return t;
             }
         }
-        return title;
+        throw new IllegalArgumentException("DOI metadata must include a title with text content");
     }
 
     private void setPermissions(Node node, GroupURI doiGroup) {
@@ -415,6 +419,18 @@ public class PostAction extends DoiAction {
         Resource mergedResource = merge(resourceFromUser, resourceFromVos);
         VOSURI docVOSURI = getVOSURI(String.format("%s/%s", doiSuffix, getDoiFilename(doiSuffix)));
         uploadDOIDocument(mergedResource, docVOSURI);
+
+        // Sync the title node property so the search endpoint reflects the updated title
+        Title mergedTitle = getTitle(mergedResource);
+        ContainerNode doiNode = vospaceDoiClient.getContainerNode(doiSuffix);
+        NodeProperty titleProp = doiNode.getProperty(DOI.VOSPACE_DOI_TITLE_PROPERTY);
+        if (titleProp != null) {
+            titleProp.setValue(mergedTitle.getValue());
+        } else {
+            doiNode.getProperties().add(new NodeProperty(DOI.VOSPACE_DOI_TITLE_PROPERTY, mergedTitle.getValue()));
+        }
+        VOSURI containerVOSURI = getVOSURI(doiSuffix);
+        vospaceDoiClient.getVOSpaceClient().setNode(containerVOSURI, doiNode);
     }
 
     private Resource merge(Resource sourceResource, Resource targetResource) {
