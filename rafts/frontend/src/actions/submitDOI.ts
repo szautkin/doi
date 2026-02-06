@@ -95,15 +95,15 @@ export const submitDOI = async (formData: TRaftContext): Promise<IResponseData<s
     multipartFormData.append('doiMetaData', jsonBlob)
 
     // Note: status defaults to DRAFT on creation (set by backend).
-    // PostAction handles both creation (POST without suffix) and update (POST with suffix).
+    // PutAction handles creation (PUT without suffix), PostAction handles update (POST with suffix).
 
     console.log('[submitDOI] Submitting to:', SUBMIT_DOI_URL)
     console.log('[submitDOI] Payload:', JSON.stringify(convertedJSON, null, 2))
 
-    // Use POST for creation. Backend creates DOI when no suffix is provided.
+    // Use PUT for creation. Backend creates DOI when no suffix is provided.
     // DOI backend returns 303 redirect on success - don't auto-follow
     const response = await fetch(SUBMIT_DOI_URL, {
-      method: 'POST',
+      method: 'PUT',
       headers: {
         // Don't set Content-Type for FormData - browser will set it with boundary
         Cookie: `CADC_SSO=${accessToken}`,

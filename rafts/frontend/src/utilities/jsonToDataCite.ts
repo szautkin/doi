@@ -67,48 +67,41 @@
 
 import { RaftData } from '@/types/doi'
 
+// JSON format for OpenCADC JsonInputter (custom JSON-to-JDOM converter):
+// - Text content: { "$": "value" }
+// - Attributes: { "@attr": "value" }
+// - Element with attrs + text: { "@attr": "value", "$": "text" }
+// - Array of child elements: { "$": [ { "childName": { ...children } }, ... ] }
+// - Regular keys create child elements (value MUST be JSONObject, not string)
+interface DataCiteCreator {
+  creator: {
+    creatorName: { '@nameType': string; $: string }
+    givenName: { $: string }
+    familyName: { $: string }
+    affiliation?: { $: string }
+  }
+}
+
+interface DataCiteContributor {
+  contributor: {
+    '@contributorType': string
+    contributorName: { $: string }
+    givenName: { $: string }
+    familyName: { $: string }
+    affiliation?: { $: string }
+  }
+}
+
 interface DataCiteJSON {
   resource: {
     '@xmlns': string
-    identifier: {
-      '@identifierType': string
-      $: string
-    }
-    creators: {
-      $: Array<{
-        creator: {
-          creatorName: {
-            '@nameType': string
-            $: string
-          }
-          givenName: { $: string }
-          familyName: { $: string }
-          affiliation: { $: string }
-        }
-      }>
-    }
-    titles: {
-      $: Array<{
-        title: { $: string }
-      }>
-    }
+    identifier: { '@identifierType': string; $: string }
+    creators: { $: DataCiteCreator[] }
+    titles: { $: Array<{ title: { $: string } }> }
     publisher: { $: string }
-    publicationYear: { $: number }
-    resourceType: {
-      '@resourceTypeGeneral': string
-      $: string
-    }
-    contributors?: {
-      $: Array<{
-        contributor: {
-          '@contributorType': string
-          contributorName: { $: string }
-          givenName: { $: string }
-          familyName: { $: string }
-          affiliation: { $: string }
-        }
-      }>
-    }
+    publicationYear: { $: string }
+    resourceType: { '@resourceTypeGeneral': string; $: string }
+    contributors?: { $: DataCiteContributor[] }
   }
 }
 
@@ -116,7 +109,6 @@ const convertToDataCite = (input: Partial<RaftData>): DataCiteJSON => {
   const publicationYear = new Date().getFullYear()
   const identifier = '10.5072/example-full' // Example DOI
 
-  // Create the main DataCite structure
   const dataCite: DataCiteJSON = {
     resource: {
       '@xmlns': 'http://datacite.org/schema/kernel-4',
@@ -145,7 +137,7 @@ const convertToDataCite = (input: Partial<RaftData>): DataCiteJSON => {
         $: [{ title: { $: input.generalInfo?.title || '' } }],
       },
       publisher: { $: 'NRC CADC' },
-      publicationYear: { $: publicationYear },
+      publicationYear: { $: String(publicationYear) },
       resourceType: {
         '@resourceTypeGeneral': 'Dataset',
         $: 'Dataset',
@@ -153,7 +145,6 @@ const convertToDataCite = (input: Partial<RaftData>): DataCiteJSON => {
     },
   }
 
-  // Only add contributors if the array exists and has at least one entry
   if (input.authorInfo?.contributingAuthors && input.authorInfo.contributingAuthors.length > 0) {
     dataCite.resource.contributors = {
       $: input.authorInfo.contributingAuthors.map((author) => ({
