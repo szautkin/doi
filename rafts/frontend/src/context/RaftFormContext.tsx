@@ -272,9 +272,8 @@ export function RaftFormProvider({
   // Check if a section is completed
   const isSectionCompleted = useCallback(
     (section: keyof typeof VALIDATION_SCHEMAS) => {
-      return raftData?.[section]
-        ? validateWithSchema(VALIDATION_SCHEMAS[section], raftData?.[section])
-        : false
+      const sectionData = raftData?.[section] ?? {}
+      return validateWithSchema(VALIDATION_SCHEMAS[section], sectionData)
     },
     [raftData],
   )

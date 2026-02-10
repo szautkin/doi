@@ -76,6 +76,7 @@ import {
   PROP_OBSERVATION_INFO,
   PROP_TECHNICAL_INFO,
   PROP_MISC_INFO,
+  PROP_MISC,
   FORM_SECTIONS,
   PROP_STATUS,
   OPTION_DRAFT,
@@ -189,15 +190,22 @@ const FormLayoutWithContext = () => {
   // Users can freely navigate between all sections regardless of completion status
 
   // Memoize completed steps array to prevent recreation
+  // Misc Info: only show green check if user actually added data
+  const hasMiscData = useMemo(() => {
+    const miscInfo = raftData?.[PROP_MISC_INFO] as TMiscInfo | undefined
+    const miscArray = miscInfo?.[PROP_MISC]
+    return Array.isArray(miscArray) && miscArray.some((item) => item.miscKey || item.miscValue)
+  }, [raftData])
+
   const completedSteps = useMemo(
     () => [
       isSectionCompleted(PROP_AUTHOR_INFO),
       isSectionCompleted(PROP_OBSERVATION_INFO),
       isSectionCompleted(PROP_TECHNICAL_INFO),
-      isSectionCompleted(PROP_MISC_INFO),
+      hasMiscData && isSectionCompleted(PROP_MISC_INFO),
       false, // Review step
     ],
-    [isSectionCompleted],
+    [isSectionCompleted, hasMiscData],
   )
 
   const changeStep = useCallback((step: number) => {
